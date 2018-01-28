@@ -1,5 +1,6 @@
 import cv2
 import numpy as np
+import scipy.io
 from numpy import matlib
 from math import *
 
@@ -52,6 +53,7 @@ def C_operation_RG(img_L, img_B, img_G, img_R):
     r_g = abs(np.subtract(img_R, img_G))
     op = np.divide(r_g, img_L, out=np.zeros_like(img_L), where=img_L != 0)
     return op
+
 
 def getGaborFiterMap(gaborparams, angle, phase):
     gp = gaborparams
@@ -109,21 +111,27 @@ def getGaborFiters(thetas):
     gaborparams['filterPeriod'] = np.pi
 
     gaborFilters = {}
-    gaborFilters['0'] = {}
-    gaborFilters['90'] = {}
-    for i in xrange(len(thetas)):
-        th = thetas[i]
-        gaborFilters['0'][i] = {}
-        gaborFilters['90'][i] = {}
-        gaborFilters['0'][i][th] = getGaborFiterMap(gaborparams, th, 0)
-        gaborFilters['90'][i][th] = getGaborFiterMap(gaborparams, th, 90)
+    for th in thetas:
+        gaborFilters[th] = {}
+        gaborFilters[th]['0'] = getGaborFiterMap(gaborparams, th, 0)
+        gaborFilters[th]['90'] = getGaborFiterMap(gaborparams, th, 90)
 
     return gaborFilters
+
+
+def loadGraphDistanceMatrixFor28x32():
+    f = scipy.io.loadmat("./28__32__m__2.mat")
+    distanceMat = np.array(f['grframe'])[0][0][0]
+    lx = np.array(f['grframe'])[0][0][1]
+    dim = np.array(f['grframe'])[0][0][2]
+    return [distanceMat, lx, dim]
 
 
 ### step 1 : computing feature maps
 def getFeatureMaps(img, params):
     maps = {}
+    maps['org'] = {}
+    maps['res'] = {}
     # creating image pyramids
     max_level = 4
     imgb = img[:, :, 0]
@@ -147,51 +155,78 @@ def getFeatureMaps(img, params):
 
     # computing feature maps
     # computing C - feature maps
-    maps['CRG_orig'] = []
-    maps['CBY_orig'] = []
+    maps['org']['CBY'] = []
+    maps['res']['CBY'] = []
 
-    maps['CRG_reshaped'] = []
-    maps['CBY_reshaped'] = []
+    maps['org']['CRG'] = []
+    maps['res']['CRG'] = []
+
     for i in range(1, max_level):
         op = C_operation_BY(img_L[i], img_B[i], img_G[i], img_R[i])
         show(op)
 
-        maps['CBY_orig'].append(op)
+        maps['org']['CBY'].append(op)
 
         res = cv2.resize(op, (32, 28), interpolation = cv2.INTER_CUBIC)
         show(res)
 
-        maps['CBY_reshaped'].append(res)
+        maps['res']['CBY'].append(res)
 
         op = C_operation_RG(img_L[i], img_B[i], img_G[i], img_R[i])
         show(op)
 
-        maps['CRG_orig'].append(op)
+        maps['org']['CRG'].append(op)
 
         res = cv2.resize(op, (32, 28), interpolation=cv2.INTER_CUBIC)
         show(res)
 
-        maps['CRG_reshaped'].append(res)
+        maps['res']['CRG'].append(res)
 
 
     # computing I- feature Map
-    maps['I_orig'] =[]
-    maps['I_reshaped'] = []
+    maps['org']['I'] =[]
+    maps['res']['I'] = []
     for i in range(1, max_level):
-        maps['I_orig'].append(img_L[i])
+        maps['org']['I'].append(img_L[i])
         res = cv2.resize(img_L[i], (32, 28), interpolation=cv2.INTER_CUBIC)
-        maps['I_reshaped'].append(res)
+        maps['res']['I'].append(res)
 
 
     # computing Orientation Maps
 
     thetas = params['gaborangles']
-    gaborFilters = getGaborFiters(thetas)
+    for th in thetas:
+        maps['org'][th] = {}
+        maps['org'][th][0] = []
+        maps['org'][th][90] = []
+
+        maps['res'][th] = {}
+        maps['res'][th][0] = []
+        maps['res'][th][90] = []
+
+        for i in range(1, max_level):
+            img = img_L[i]
+
+            kernelPair=getGaborFiters([th])
+            kernel_0 = kernelPair[th]['0']
+            kernel_90 = kernelPair[th]['90']
+
+            o1 = cv2.filter2D(img, -1, kernel_0, borderType=cv2.BORDER_REPLICATE)
+            o2 = cv2.filter2D(img, -1, kernel_90, borderType=cv2.BORDER_REPLICATE)
+
+            maps['org'][th][0].append(o1)
+            maps['org'][th][90].append(o2)
+            show(o1), show(o2)
+
+            r1 = cv2.resize(o1, (32, 28), interpolation=cv2.INTER_CUBIC)
+            r2 = cv2.resize(o2, (32, 28), interpolation=cv2.INTER_CUBIC)
 
 
+            maps['res'][th][0].append(r1)
+            maps['res'][th][90].append(r2)
+            show(r1), show(r2)
 
-    pass
-
+    return maps
 
 
 
@@ -199,6 +234,8 @@ def getFeatureMaps(img, params):
 if __name__ == "__main__":
     img = cv2.imread("1.jpg")
     img = img / 255.0
-    # cv2.imshow("1",img), cv2.waitKey()
+    show(img)
     params = setupParams()
-    getFeatureMaps(img, params)
+    # getFeatureMaps(img, params)
+    # [a,b,c] = loadGraphDistanceMatrixFor28x32()
+    pass
