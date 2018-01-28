@@ -3,6 +3,8 @@ import numpy as np
 import scipy.io
 from numpy import matlib
 from math import *
+from sklearn.preprocessing import normalize
+from matplotlib import pyplot as plt
 
 
 def setupParams():
@@ -10,18 +12,18 @@ def setupParams():
     params['saliancy_map_maxsize'] = 32
     params['blur_fraction'] = 0.02
 
-    params['feature_channels'] = 'DIO'  # DKL color, Intensity, Rotation
-    params['intensityWeight'] = 1
+    # params['feature_channels'] = 'DIO'  # DKL color, Intensity, Rotation
+    # params['intensityWeight'] = 1
     # params['colorWeight'] = 1
-    params['intensityWeight'] = 1
-    params['orientationWeight'] = 1
+    # params['intensityWeight'] = 1
+    # params['orientationWeight'] = 1
     # params['contrastWeight'] = 1
     # params['flickerWeight'] = 1
     # params['motionWeight'] = 1
-    params['dklcolorWeight'] = 1
+    # params['dklcolorWeight'] = 1
     params['gaborangles'] = [0, 45, 90, 135]
     # params['flickerNewFrameWt'] = 1
-    params['motionAngles'] = [0, 45, 90, 135]
+    # params['motionAngles'] = [0, 45, 90, 135]
 
     params['unCenterBias'] = 0
     params['levels'] = [2, 3, 4]
@@ -38,6 +40,9 @@ def setupParams():
 
 
 def show(img):
+    plt.imshow(img)
+    plt.show()
+    # cv2.namedWindow("i", flags=cv2.WINDOW_KEEPRATIO)
     # cv2.imshow("i", img), cv2.waitKey()
     pass
 
@@ -58,14 +63,14 @@ def C_operation_RG(img_L, img_B, img_G, img_R):
 def getGaborFiterMap(gaborparams, angle, phase):
     gp = gaborparams
     major_sd = gp['stddev']
-    minor_sd = major_sd*gp['elongation']
+    minor_sd = major_sd * gp['elongation']
     max_sd = max(major_sd, minor_sd)
 
     sz = gp['filterSize']
-    if sz==-1:
-        sz = ceil(max_sd*sqrt(10))
+    if sz == -1:
+        sz = ceil(max_sd * sqrt(10))
     else:
-        sz = floor(sz/2)
+        sz = floor(sz / 2)
 
     psi = np.pi / 180 * phase
     rtDeg = np.pi / 180 * angle
@@ -76,10 +81,10 @@ def getGaborFiterMap(gaborparams, angle, phase):
     major_sigq = 2 * pow(major_sd, 2)
     minor_sigq = 2 * pow(minor_sd, 2)
 
-    vec = range(-int(sz), int(sz)+1)
+    vec = range(-int(sz), int(sz) + 1)
     vlen = len(vec)
-    vco = [i*co for i in vec]
-    vsi = [i*si for i in vec]
+    vco = [i * co for i in vec]
+    vsi = [i * si for i in vec]
 
     # major = np.matlib.repmat(np.asarray(vco).transpose(), 1, vlen) + np.matlib.repmat(vsi, vlen, 1)
     a = np.tile(np.asarray(vco).transpose(), (vlen, 1)).transpose()
@@ -94,12 +99,12 @@ def getGaborFiterMap(gaborparams, angle, phase):
     minor2 = np.power(minor, 2)
 
     a = np.cos(omega * major + psi)
-    b = np.exp(-major2/major_sigq - minor2/minor_sigq)
+    b = np.exp(-major2 / major_sigq - minor2 / minor_sigq)
     # result = np.cos(omega * major + psi) * exp(-major2/major_sigq - minor2/minor_sigq)
     result = np.multiply(a, b)
 
-    filter1 = np.subtract(result , np.mean(result.reshape(-1)))
-    filter1 = np.divide(filter1 , np.sqrt(np.sum(np.power(filter1.reshape(-1), 2))))
+    filter1 = np.subtract(result, np.mean(result.reshape(-1)))
+    filter1 = np.divide(filter1, np.sqrt(np.sum(np.power(filter1.reshape(-1), 2))))
     return filter1
 
 
@@ -127,6 +132,78 @@ def loadGraphDistanceMatrixFor28x32():
     return [distanceMat, lx, dim]
 
 
+def extractAllFeatureMaps(featMaps):
+    linedUpMaps = []
+    [linedUpMaps.append(a) for a in featMaps['res']['CBY']]
+    [linedUpMaps.append(a) for a in featMaps['res']['CRG']]
+    [linedUpMaps.append(a) for a in featMaps['res']['I']]
+    [linedUpMaps.append(a) for a in featMaps['res'][0]]
+    [linedUpMaps.append(a) for a in featMaps['res'][45]]
+    [linedUpMaps.append(a) for a in featMaps['res'][90]]
+    [linedUpMaps.append(a) for a in featMaps['res'][135]]
+    return linedUpMaps
+
+def computeEigenVector(mat):
+    w,h = mat.shape
+    diff = 1
+    v = np.divide(np.ones((w, 1), dtype=np.float32), w)
+    oldv = v
+    oldoldv = v
+
+    while diff > 0.0001 :
+        oldv = v
+        oldoldv = oldv
+        v = np.dot(mat,v)
+        diff = np.linalg.norm(oldv - v, ord=2)
+        s = sum(v)
+        if s>=0 and s< np.inf:
+            continue
+        else:
+            v = oldoldv
+            break
+
+    v = np.divide(v, sum(v))
+
+    return v
+
+def computeGraphSaliencyForAFeatMap(params, map):
+    [distanceMat, lx, dims] = loadGraphDistanceMatrixFor28x32()
+    sigma = params['sigma_frac_act'] * np.mean(map.shape) # Just 0.15 percent of width ( we took avg of both dims)
+    denom = 2*pow(sigma, 2)
+    expr = -np.divide(distanceMat, denom)
+    Fab = np.exp(expr)
+
+    map_linear = np.ravel(map, order='F') # column major
+    # map_linear = map.reshape(-1)
+    state_transition_matrix = np.zeros_like(distanceMat, dtype=np.float32)
+    # calculating STM : w = d*Fab
+    for i in xrange(distanceMat.shape[0]):
+        for j in xrange(distanceMat.shape[1]):
+            state_transition_matrix[i][j] = Fab[i][j]*abs(map_linear[i] - map_linear[j])
+    # normalising outgoing weights of each node to sum to 1, using scikit normalize
+    norm_STM = normalize(state_transition_matrix, axis=0, norm='l1')
+    # print sum(norm_STM)
+
+    # caomputing equilibrium state of a markv chain is same as computing eigen vector of its weight matrix
+    # https://lps.lexingtonma.org/cms/lib2/MA01001631/Centricity/Domain/955/EigenApplications%20to%20Markov%20Chains.pdf
+    eVec = computeEigenVector(norm_STM)
+    processed_reshaped = np.reshape(eVec, map.shape, order='F')
+    return processed_reshaped
+
+
+def normaliseUsingGraphBasedSaliency(params, map):
+    [distanceMat, lx, dims] = loadGraphDistanceMatrixFor28x32()
+    sigma = params['sigma_frac_norm'] * np.mean(map.shape)  # Just 0.15 percent of width ( we took avg of both dims)
+    denom = 2 * pow(sigma, 2)
+    expr = -np.divide(distanceMat, denom)
+    Fab = np.exp(expr)
+
+
+
+
+
+
+###===========================================================================================================
 ### step 1 : computing feature maps
 def getFeatureMaps(img, params):
     maps = {}
@@ -163,79 +240,91 @@ def getFeatureMaps(img, params):
 
     for i in range(1, max_level):
         op = C_operation_BY(img_L[i], img_B[i], img_G[i], img_R[i])
-        show(op)
+        #show((op)
 
         maps['org']['CBY'].append(op)
 
-        res = cv2.resize(op, (32, 28), interpolation = cv2.INTER_CUBIC)
-        show(res)
+        res = cv2.resize(op, (32, 28), interpolation=cv2.INTER_CUBIC)
+        #show((res)
 
         maps['res']['CBY'].append(res)
 
         op = C_operation_RG(img_L[i], img_B[i], img_G[i], img_R[i])
-        show(op)
+        #show((op)
 
         maps['org']['CRG'].append(op)
 
         res = cv2.resize(op, (32, 28), interpolation=cv2.INTER_CUBIC)
-        show(res)
+        #show((res)
 
         maps['res']['CRG'].append(res)
 
-
     # computing I- feature Map
-    maps['org']['I'] =[]
+    maps['org']['I'] = []
     maps['res']['I'] = []
     for i in range(1, max_level):
         maps['org']['I'].append(img_L[i])
         res = cv2.resize(img_L[i], (32, 28), interpolation=cv2.INTER_CUBIC)
         maps['res']['I'].append(res)
 
-
     # computing Orientation Maps
 
     thetas = params['gaborangles']
     for th in thetas:
-        maps['org'][th] = {}
-        maps['org'][th][0] = []
-        maps['org'][th][90] = []
-
-        maps['res'][th] = {}
-        maps['res'][th][0] = []
-        maps['res'][th][90] = []
+        maps['org'][th] = []
+        maps['res'][th] = []
 
         for i in range(1, max_level):
             img = img_L[i]
 
-            kernelPair=getGaborFiters([th])
+            kernelPair = getGaborFiters([th])
             kernel_0 = kernelPair[th]['0']
             kernel_90 = kernelPair[th]['90']
 
             o1 = cv2.filter2D(img, -1, kernel_0, borderType=cv2.BORDER_REPLICATE)
             o2 = cv2.filter2D(img, -1, kernel_90, borderType=cv2.BORDER_REPLICATE)
+            o = np.add(abs(o1), abs(o2))
 
-            maps['org'][th][0].append(o1)
-            maps['org'][th][90].append(o2)
-            show(o1), show(o2)
+            maps['org'][th].append(o)
+            #show((o)
 
-            r1 = cv2.resize(o1, (32, 28), interpolation=cv2.INTER_CUBIC)
-            r2 = cv2.resize(o2, (32, 28), interpolation=cv2.INTER_CUBIC)
+            r = cv2.resize(o, (32, 28), interpolation=cv2.INTER_CUBIC)
 
-
-            maps['res'][th][0].append(r1)
-            maps['res'][th][90].append(r2)
-            show(r1), show(r2)
+            maps['res'][th].append(r)
+            #show((r)
 
     return maps
 
 
+### step 2 : computing activation maps
+def getActivationMap(params, featMaps):
+    featureMaps = extractAllFeatureMaps(featMaps)
+    activationMaps=[]
+    for map in featureMaps:
+        # map = np.array(scipy.io.loadmat("./AA.mat")['A'])
+        salmap = computeGraphSaliencyForAFeatMap(params, map)
+        activationMaps.append(salmap)
+        print "Processed."
+        '''
+        fig = plt.figure()
+        fig.add_subplot(1,2,1)
+        plt.imshow(map, cmap='gray')
+        fig.add_subplot(1,2,2)
+        plt.imshow(salmap, cmap='gray')
+        plt.show()
+        '''
 
+### step 3 : normalize the activation maps using graph based normalising
+def normaliseActMaps(params, actMaps):
+    normActMaps = []
+    for actmap in actMaps:
+        pass
 
 if __name__ == "__main__":
     img = cv2.imread("1.jpg")
     img = img / 255.0
-    show(img)
+    #show((img)
     params = setupParams()
-    # getFeatureMaps(img, params)
-    # [a,b,c] = loadGraphDistanceMatrixFor28x32()
+    featMaps = getFeatureMaps(img, params)
+    getActivationMap(params, featMaps)
     pass
