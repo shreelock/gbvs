@@ -9,35 +9,11 @@ from matplotlib import pyplot as plt
 
 def setupParams():
     params = {}
-    params['saliancy_map_maxsize'] = 32
-    params['blur_fraction'] = 0.02
-
-    # params['feature_channels'] = 'DIO'  # DKL color, Intensity, Rotation
-    # params['intensityWeight'] = 1
-    # params['colorWeight'] = 1
-    # params['intensityWeight'] = 1
-    # params['orientationWeight'] = 1
-    # params['contrastWeight'] = 1
-    # params['flickerWeight'] = 1
-    # params['motionWeight'] = 1
-    # params['dklcolorWeight'] = 1
     params['gaborangles'] = [0, 45, 90, 135]
-    # params['flickerNewFrameWt'] = 1
-    # params['motionAngles'] = [0, 45, 90, 135]
-
-    params['unCenterBias'] = 0
-    params['levels'] = [2, 3, 4]
-    params['multilevels'] = []
     params['sigma_frac_act'] = 0.15
     params['sigma_frac_norm'] = 0.06
-    params['num_norm_iters'] = 1
-    params['tol'] = 0.0001
-    params['cyclic_type'] = 2
-    params['normalizationType'] = 1
-    params['normalizeTopChannelMaps'] = 0
 
     return params
-
 
 def show(img):
     plt.imshow(img)
@@ -46,19 +22,16 @@ def show(img):
     # cv2.imshow("i", img), cv2.waitKey()
     pass
 
-
 def C_operation_BY(img_L, img_B, img_G, img_R):
     min_rg = np.minimum(img_R, img_G)
     b_min_rg = abs(np.subtract(img_B, min_rg))
     op = np.divide(b_min_rg, img_L, out=np.zeros_like(img_L), where=img_L != 0)
     return op
 
-
 def C_operation_RG(img_L, img_B, img_G, img_R):
     r_g = abs(np.subtract(img_R, img_G))
     op = np.divide(r_g, img_L, out=np.zeros_like(img_L), where=img_L != 0)
     return op
-
 
 def getGaborFiterMap(gaborparams, angle, phase):
     gp = gaborparams
@@ -107,7 +80,6 @@ def getGaborFiterMap(gaborparams, angle, phase):
     filter1 = np.divide(filter1, np.sqrt(np.sum(np.power(filter1.reshape(-1), 2))))
     return filter1
 
-
 def getGaborFiters(thetas):
     gaborparams = {}
     gaborparams['stddev'] = 2
@@ -123,14 +95,12 @@ def getGaborFiters(thetas):
 
     return gaborFilters
 
-
 def loadGraphDistanceMatrixFor28x32():
     f = scipy.io.loadmat("./28__32__m__2.mat")
     distanceMat = np.array(f['grframe'])[0][0][0]
     lx = np.array(f['grframe'])[0][0][1]
     dim = np.array(f['grframe'])[0][0][2]
     return [distanceMat, lx, dim]
-
 
 def extractAllFeatureMaps(featMaps):
     linedUpMaps = []
@@ -190,7 +160,6 @@ def computeGraphSaliencyForAFeatMap(params, map):
     processed_reshaped = np.reshape(eVec, map.shape, order='F')
     return processed_reshaped
 
-
 def normaliseUsingGraphBasedSaliency(params, map):
     [distanceMat, lx, dims] = loadGraphDistanceMatrixFor28x32()
     sigma = params['sigma_frac_norm'] * np.mean(map.shape)  # Just 0.15 percent of width ( we took avg of both dims)
@@ -198,9 +167,23 @@ def normaliseUsingGraphBasedSaliency(params, map):
     expr = -np.divide(distanceMat, denom)
     Fab = np.exp(expr)
 
+    act_map_linear = np.ravel(map, order='F')
+    STM = np.zeros_like(distanceMat, dtype=np.float32)
 
+    # calculating STM : w = A*Fab
+    for i in xrange(distanceMat.shape[0]):
+        for j in xrange(distanceMat.shape[1]):
+            STM[i][j] = Fab[i][j]*abs(act_map_linear[i])
 
+    # normalising outgoing weights of each node to sum to 1, using scikit normalize
+    norm_STM = normalize(STM, axis=0, norm='l1')
+    # print sum(norm_STM)
 
+    # caomputing equilibrium state of a markv chain is same as computing eigen vector of its weight matrix
+    # https://lps.lexingtonma.org/cms/lib2/MA01001631/Centricity/Domain/955/EigenApplications%20to%20Markov%20Chains.pdf
+    eVec = computeEigenVector(norm_STM)
+    processed_reshaped = np.reshape(eVec, map.shape, order='F')
+    return processed_reshaped
 
 
 ###===========================================================================================================
@@ -304,27 +287,67 @@ def getActivationMap(params, featMaps):
         # map = np.array(scipy.io.loadmat("./AA.mat")['A'])
         salmap = computeGraphSaliencyForAFeatMap(params, map)
         activationMaps.append(salmap)
-        print "Processed."
-        '''
-        fig = plt.figure()
-        fig.add_subplot(1,2,1)
-        plt.imshow(map, cmap='gray')
-        fig.add_subplot(1,2,2)
-        plt.imshow(salmap, cmap='gray')
-        plt.show()
-        '''
+        print "Processed activation map."
+    return  activationMaps
+
 
 ### step 3 : normalize the activation maps using graph based normalising
 def normaliseActMaps(params, actMaps):
     normActMaps = []
     for actmap in actMaps:
-        pass
+        normsalmap = normaliseUsingGraphBasedSaliency(params, actmap)
+        normActMaps.append(normsalmap)
+        print "normalised map"
+    return normActMaps
+
+### step 4 : combine normalised activation maps for each feature channel
+def combineNormActMaps(maps):
+    cmbMaps = {}
+    [cCnt, iCnt, oCnt] = [1, 1, 1]
+    cmbMaps['c'] = maps[0]
+    cmbMaps['i'] = maps[6]
+    cmbMaps['o'] = maps[8]
+
+    for i in range(1,6):
+        np.add(cmbMaps['c'], maps[i])
+        cCnt=cCnt+1
+    for i in range(7,8):
+        np.add(cmbMaps['i'], maps[i])
+        iCnt=iCnt+1
+    for i in range(9,21):
+        np.add(cmbMaps['o'], maps[i])
+        oCnt = oCnt+1
+
+    np.divide(cmbMaps['c'], cCnt)
+    np.divide(cmbMaps['i'], iCnt)
+    np.divide(cmbMaps['o'], oCnt)
+
+    mastermap = np.add(np.add(cmbMaps['c'], cmbMaps['i']), cmbMaps['o'])
+    return mastermap
+
+### step 5 : postprocessing
+def postprocess(mastermap, img):
+    gray = cv2.normalize(mastermap, None, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F)
+    blurred = cv2.GaussianBlur(gray,(3,3), 2)
+    gray2 = cv2.normalize(blurred, None, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F)
+    mastermap_res = cv2.resize(gray2, (img.shape[1], img.shape[0]), interpolation=cv2.INTER_CUBIC)
+    return mastermap_res
 
 if __name__ == "__main__":
-    img = cv2.imread("1.jpg")
-    img = img / 255.0
-    #show((img)
-    params = setupParams()
-    featMaps = getFeatureMaps(img, params)
-    getActivationMap(params, featMaps)
-    pass
+    for i in range(1, 6):
+        imname = str(i)+".jpg"
+        img = cv2.imread(imname)
+        img = img / 255.0
+        params = setupParams()
+        featMaps = getFeatureMaps(img, params)
+        actMaps = getActivationMap(params, featMaps)
+        normActMaps = normaliseActMaps(params, actMaps)
+        mastermap = combineNormActMaps(normActMaps)
+        finalres = postprocess(mastermap, img)
+
+        fig = plt.figure()
+        fig.add_subplot(1,2,1)
+        plt.imshow(img, cmap='gray')
+        fig.add_subplot(1,2,2)
+        plt.imshow(finalres, cmap='gray')
+        plt.show()
