@@ -111,6 +111,16 @@ def extractAllFeatureMaps(featMaps):
     [linedUpMaps.append(a) for a in featMaps['res'][45]]
     [linedUpMaps.append(a) for a in featMaps['res'][90]]
     [linedUpMaps.append(a) for a in featMaps['res'][135]]
+
+    '''###
+    loadedFeatMaps = scipy.io.loadmat("./featmaps.mat")
+    linedUpMaps = []
+    [linedUpMaps.append(loadedFeatMaps['featmaps'][0][i]) for i in range(0,21)]
+
+    ###'''
+
+
+
     return linedUpMaps
 
 def computeEigenVector(mat):
@@ -197,7 +207,8 @@ def getFeatureMaps(img, params):
     imgb = img[:, :, 0]
     imgg = img[:, :, 1]
     imgr = img[:, :, 2]
-    imgi = np.maximum(imgr, imgb, imgg)
+    imgi = np.maximum(np.maximum(imgr, imgg), imgb)
+    # dont use np max for three vars, third one is supposed to be output
 
     img_R = [cv2.pyrDown(imgr)]
     img_G = [cv2.pyrDown(imgg)]
@@ -209,8 +220,32 @@ def getFeatureMaps(img, params):
         img_G.append(cv2.pyrDown(img_G[i - 1]))
         img_B.append(cv2.pyrDown(img_B[i - 1]))
         img_L.append(cv2.pyrDown(img_L[i - 1]))
+    '''###
+    imgData = scipy.io.loadmat("imgData.mat")
+    img_L = [imgData['imgL'][0][0]]
+    img_L.append(imgData['imgL'][0][1])
+    img_L.append(imgData['imgL'][0][2])
+    img_L.append(imgData['imgL'][0][3])
 
-    print len(img_B)
+    img_R = [imgData['imgR'][0][0]]
+    img_R.append(imgData['imgR'][0][1])
+    img_R.append(imgData['imgR'][0][2])
+    img_R.append(imgData['imgR'][0][3])
+
+    img_G = [imgData['imgG'][0][0]]
+    img_G.append(imgData['imgG'][0][1])
+    img_G.append(imgData['imgG'][0][2])
+    img_G.append(imgData['imgG'][0][3])
+
+    img_B = [imgData['imgB'][0][0]]
+    img_B.append(imgData['imgB'][0][1])
+    img_B.append(imgData['imgB'][0][2])
+    img_B.append(imgData['imgB'][0][3])
+    
+    ###'''
+
+
+    #print len(img_B)
     # cv2.imshow("1", img_L[0]), cv2.waitKey()
 
     # computing feature maps
@@ -257,13 +292,12 @@ def getFeatureMaps(img, params):
         maps['org'][th] = []
         maps['res'][th] = []
 
+        kernelPair = getGaborFiters([th])
+        kernel_0 = kernelPair[th]['0']
+        kernel_90 = kernelPair[th]['90']
+
         for i in range(1, max_level):
             img = img_L[i]
-
-            kernelPair = getGaborFiters([th])
-            kernel_0 = kernelPair[th]['0']
-            kernel_90 = kernelPair[th]['90']
-
             o1 = cv2.filter2D(img, -1, kernel_0, borderType=cv2.BORDER_REPLICATE)
             o2 = cv2.filter2D(img, -1, kernel_90, borderType=cv2.BORDER_REPLICATE)
             o = np.add(abs(o1), abs(o2))
@@ -284,7 +318,6 @@ def getActivationMap(params, featMaps):
     featureMaps = extractAllFeatureMaps(featMaps)
     activationMaps=[]
     for map in featureMaps:
-        # map = np.array(scipy.io.loadmat("./AA.mat")['A'])
         salmap = computeGraphSaliencyForAFeatMap(params, map)
         activationMaps.append(salmap)
         print "Processed activation map."
@@ -309,18 +342,18 @@ def combineNormActMaps(maps):
     cmbMaps['o'] = maps[8]
 
     for i in range(1,6):
-        np.add(cmbMaps['c'], maps[i])
+        cmbMaps['c'] = np.add(cmbMaps['c'], maps[i])
         cCnt=cCnt+1
-    for i in range(7,8):
-        np.add(cmbMaps['i'], maps[i])
+    for i in range(7,9):
+        cmbMaps['i'] = np.add(cmbMaps['i'], maps[i])
         iCnt=iCnt+1
-    for i in range(9,21):
-        np.add(cmbMaps['o'], maps[i])
+    for i in range(10,21):
+        cmbMaps['o'] = np.add(cmbMaps['o'], maps[i])
         oCnt = oCnt+1
 
-    np.divide(cmbMaps['c'], cCnt)
-    np.divide(cmbMaps['i'], iCnt)
-    np.divide(cmbMaps['o'], oCnt)
+    # np.divide(cmbMaps['c'], cCnt)
+    # np.divide(cmbMaps['i'], iCnt)
+    # np.divide(cmbMaps['o'], oCnt)
 
     mastermap = np.add(np.add(cmbMaps['c'], cmbMaps['i']), cmbMaps['o'])
     return mastermap
@@ -328,13 +361,13 @@ def combineNormActMaps(maps):
 ### step 5 : postprocessing
 def postprocess(mastermap, img):
     gray = cv2.normalize(mastermap, None, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F)
-    blurred = cv2.GaussianBlur(gray,(3,3), 2)
-    gray2 = cv2.normalize(blurred, None, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F)
-    mastermap_res = cv2.resize(gray2, (img.shape[1], img.shape[0]), interpolation=cv2.INTER_CUBIC)
+    # blurred = cv2.GaussianBlur(gray,(4,4), 4)
+    # gray2 = cv2.normalize(blurred, None, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F)
+    mastermap_res = cv2.resize(gray, (img.shape[1], img.shape[0]), interpolation=cv2.INTER_CUBIC)
     return mastermap_res
 
 if __name__ == "__main__":
-    for i in range(1, 6):
+    for i in range(1, 2):
         imname = str(i)+".jpg"
         img = cv2.imread(imname)
         img = img / 255.0
@@ -344,7 +377,7 @@ if __name__ == "__main__":
         normActMaps = normaliseActMaps(params, actMaps)
         mastermap = combineNormActMaps(normActMaps)
         finalres = postprocess(mastermap, img)
-
+        scipy.io.savemat('py', {'mat': finalres})
         fig = plt.figure()
         fig.add_subplot(1,2,1)
         plt.imshow(img, cmap='gray')
