@@ -287,7 +287,7 @@ def getActivationMap(params, featMaps):
     for map in featureMaps:
         salmap = computeGraphSaliencyForAFeatMap(params, map)
         activationMaps.append(salmap)
-        print "Processed activation map."
+        # print "Processed activation map."
     return  activationMaps
 
 
@@ -297,7 +297,7 @@ def normaliseActMaps(params, actMaps):
     for actmap in actMaps:
         normsalmap = normaliseUsingGraphBasedSaliency(params, actmap)
         normActMaps.append(normsalmap)
-        print "normalised map"
+        # print "normalised map"
     return normActMaps
 
 ### step 4 : combine normalised activation maps for each feature channel
@@ -334,9 +334,10 @@ def postprocess(mastermap, img):
     return mastermap_res
 
 if __name__ == "__main__":
-    # for i in range(1, 2):
-        # imname = str(i)+".jpg"
-        imname = "1.jpg"
+    for i in range(0, 99):
+        fname = '{:03}'.format(2*i + 1)
+        imname = "C:\\Users\\Dutt\\Downloads\\trainSet\\Stimuli\\Art\\" + fname + ".jpg"
+        print "processing" + fname
         img = cv2.imread(imname)
         img = img / 255.0
         params = setupParams()
@@ -345,12 +346,12 @@ if __name__ == "__main__":
         normActMaps = normaliseActMaps(params, actMaps)
         mastermap = combineNormActMaps(normActMaps)
         finalres = postprocess(mastermap, img)
-        oname = "./outputs/" + imname[:-4] + "_out" +str(time.time())+".jpg"
+        oname = "./outputs/" + fname+ "_out" +str(time.time())+".jpg"
         cv2.imwrite(oname, finalres*255.0)
-        scipy.io.savemat('py', {'finalres': finalres})
-        fig = plt.figure()
-        fig.add_subplot(1,2,1)
-        plt.imshow(img, cmap='gray')
-        fig.add_subplot(1,2,2)
-        plt.imshow(finalres, cmap='gray')
-        plt.show()
+        scipy.io.savemat(fname+'py', {'finalres': finalres})
+        # fig = plt.figure()
+        # fig.add_subplot(1,2,1)
+        # plt.imshow(img, cmap='gray')
+        # fig.add_subplot(1,2,2)
+        # plt.imshow(finalres, cmap='gray')
+        # plt.show()
