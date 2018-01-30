@@ -5,6 +5,7 @@ from numpy import matlib
 from math import *
 from sklearn.preprocessing import normalize
 from matplotlib import pyplot as plt
+import time
 
 
 def setupParams():
@@ -111,19 +112,9 @@ def extractAllFeatureMaps(featMaps):
     [linedUpMaps.append(a) for a in featMaps['res'][45]]
     [linedUpMaps.append(a) for a in featMaps['res'][90]]
     [linedUpMaps.append(a) for a in featMaps['res'][135]]
-
-    '''###
-    loadedFeatMaps = scipy.io.loadmat("./featmaps.mat")
-    linedUpMaps = []
-    [linedUpMaps.append(loadedFeatMaps['featmaps'][0][i]) for i in range(0,21)]
-
-    ###'''
-
-
-
     return linedUpMaps
 
-def computeEigenVector(mat):
+def solveMarkovChain(mat):
     w,h = mat.shape
     diff = 1
     v = np.divide(np.ones((w, 1), dtype=np.float32), w)
@@ -166,7 +157,7 @@ def computeGraphSaliencyForAFeatMap(params, map):
 
     # caomputing equilibrium state of a markv chain is same as computing eigen vector of its weight matrix
     # https://lps.lexingtonma.org/cms/lib2/MA01001631/Centricity/Domain/955/EigenApplications%20to%20Markov%20Chains.pdf
-    eVec = computeEigenVector(norm_STM)
+    eVec = solveMarkovChain(norm_STM)
     processed_reshaped = np.reshape(eVec, map.shape, order='F')
     return processed_reshaped
 
@@ -191,7 +182,7 @@ def normaliseUsingGraphBasedSaliency(params, map):
 
     # caomputing equilibrium state of a markv chain is same as computing eigen vector of its weight matrix
     # https://lps.lexingtonma.org/cms/lib2/MA01001631/Centricity/Domain/955/EigenApplications%20to%20Markov%20Chains.pdf
-    eVec = computeEigenVector(norm_STM)
+    eVec = solveMarkovChain(norm_STM)
     processed_reshaped = np.reshape(eVec, map.shape, order='F')
     return processed_reshaped
 
@@ -220,30 +211,6 @@ def getFeatureMaps(img, params):
         img_G.append(cv2.pyrDown(img_G[i - 1]))
         img_B.append(cv2.pyrDown(img_B[i - 1]))
         img_L.append(cv2.pyrDown(img_L[i - 1]))
-    '''###
-    imgData = scipy.io.loadmat("imgData.mat")
-    img_L = [imgData['imgL'][0][0]]
-    img_L.append(imgData['imgL'][0][1])
-    img_L.append(imgData['imgL'][0][2])
-    img_L.append(imgData['imgL'][0][3])
-
-    img_R = [imgData['imgR'][0][0]]
-    img_R.append(imgData['imgR'][0][1])
-    img_R.append(imgData['imgR'][0][2])
-    img_R.append(imgData['imgR'][0][3])
-
-    img_G = [imgData['imgG'][0][0]]
-    img_G.append(imgData['imgG'][0][1])
-    img_G.append(imgData['imgG'][0][2])
-    img_G.append(imgData['imgG'][0][3])
-
-    img_B = [imgData['imgB'][0][0]]
-    img_B.append(imgData['imgB'][0][1])
-    img_B.append(imgData['imgB'][0][2])
-    img_B.append(imgData['imgB'][0][3])
-    
-    ###'''
-
 
     #print len(img_B)
     # cv2.imshow("1", img_L[0]), cv2.waitKey()
@@ -367,8 +334,9 @@ def postprocess(mastermap, img):
     return mastermap_res
 
 if __name__ == "__main__":
-    for i in range(1, 2):
-        imname = str(i)+".jpg"
+    # for i in range(1, 2):
+        # imname = str(i)+".jpg"
+        imname = "1.jpg"
         img = cv2.imread(imname)
         img = img / 255.0
         params = setupParams()
@@ -377,7 +345,9 @@ if __name__ == "__main__":
         normActMaps = normaliseActMaps(params, actMaps)
         mastermap = combineNormActMaps(normActMaps)
         finalres = postprocess(mastermap, img)
-        scipy.io.savemat('py', {'mat': finalres})
+        oname = "./outputs/" + imname[:-4] + "_out" +str(time.time())+".jpg"
+        cv2.imwrite(oname, finalres*255.0)
+        scipy.io.savemat('py', {'finalres': finalres})
         fig = plt.figure()
         fig.add_subplot(1,2,1)
         plt.imshow(img, cmap='gray')
