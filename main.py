@@ -335,6 +335,7 @@ def postprocess(mastermap, img):
 
 if __name__ == "__main__":
     for i in range(0, 99):
+        # ------------------------ THIS IS OTUDATED, PLEASE USE gbvs.PY --------------------------------- #
         fname = '{:03}'.format(2*i + 1)
         imname = "C:\\Users\\Dutt\\Downloads\\trainSet\\Stimuli\\Art\\" + fname + ".jpg"
         print "processing" + fname
