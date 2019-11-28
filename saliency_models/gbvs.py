@@ -127,7 +127,7 @@ def get_saliency_from_image(input_image):
 
 if __name__ == '__main__':
     params = setupParams()
-    for i in range(1, 2):
+    for i in range(1, 9):
         # fname = '{:03}'.format(2*i + 1)
         # imname = "C:\\Users\\Dutt\\Downloads\\trainSet\\Stimuli\\Art\\" + fname + ".jpg"
         fname = str(i)
