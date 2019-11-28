@@ -124,7 +124,7 @@ if __name__ == '__main__':
         # imname = "C:\\Users\\Dutt\\Downloads\\trainSet\\Stimuli\\Art\\" + fname + ".jpg"
         fname = str(i)
         imname = "./images/" + fname + ".jpg"
-        print "processing" + fname
+        print("processing" + fname)
         img = cv2.imread(imname)
         img = img / 255.0
 

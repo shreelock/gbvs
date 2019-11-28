@@ -148,8 +148,8 @@ def computeGraphSaliencyForAFeatMap(params, map):
     # map_linear = map.reshape(-1)
     state_transition_matrix = np.zeros_like(distanceMat, dtype=np.float32)
     # calculating STM : w = d*Fab
-    for i in xrange(distanceMat.shape[0]):
-        for j in xrange(distanceMat.shape[1]):
+    for i in range(distanceMat.shape[0]):
+        for j in range(distanceMat.shape[1]):
             state_transition_matrix[i][j] = Fab[i][j]*abs(map_linear[i] - map_linear[j])
     # normalising outgoing weights of each node to sum to 1, using scikit normalize
     norm_STM = normalize(state_transition_matrix, axis=0, norm='l1')
@@ -172,8 +172,8 @@ def normaliseUsingGraphBasedSaliency(params, map):
     STM = np.zeros_like(distanceMat, dtype=np.float32)
 
     # calculating STM : w = A*Fab
-    for i in xrange(distanceMat.shape[0]):
-        for j in xrange(distanceMat.shape[1]):
+    for i in range(distanceMat.shape[0]):
+        for j in range(distanceMat.shape[1]):
             STM[i][j] = Fab[i][j]*abs(act_map_linear[i])
 
     # normalising outgoing weights of each node to sum to 1, using scikit normalize
@@ -338,7 +338,7 @@ if __name__ == "__main__":
         # ------------------------ THIS IS OTUDATED, PLEASE USE gbvs.PY --------------------------------- #
         fname = '{:03}'.format(2*i + 1)
         imname = "C:\\Users\\Dutt\\Downloads\\trainSet\\Stimuli\\Art\\" + fname + ".jpg"
-        print "processing" + fname
+        print("processing" + fname)
         img = cv2.imread(imname)
         img = img / 255.0
         params = setupParams()

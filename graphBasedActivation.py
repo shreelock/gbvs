@@ -20,8 +20,8 @@ def calculate(map, sigma):
     state_transition_matrix = np.zeros_like(distanceMat, dtype=np.float32)
 
     # calculating STM : w = d*Fab
-    for i in xrange(distanceMat.shape[0]):
-        for j in xrange(distanceMat.shape[1]):
+    for i in range(distanceMat.shape[0]):
+        for j in range(distanceMat.shape[1]):
             state_transition_matrix[i][j] = Fab[i][j] * abs(map_linear[i] - map_linear[j])
 
     # normalising outgoing weights of each node to sum to 1, using scikit normalize
@@ -44,8 +44,8 @@ def normalize(map, sigma):
     state_transition_matrix = np.zeros_like(distanceMat, dtype=np.float32)
 
     # calculating STM : w = d*Fab
-    for i in xrange(distanceMat.shape[0]):
-        for j in xrange(distanceMat.shape[1]):
+    for i in range(distanceMat.shape[0]):
+        for j in range(distanceMat.shape[1]):
             state_transition_matrix[i][j] = Fab[i][j] * abs(map_linear[i])
 
     # normalising outgoing weights of each node to sum to 1, using scikit normalize
