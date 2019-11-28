@@ -123,7 +123,7 @@ def get_saliency_from_image(input_image):
         input_image = cv2.imread(imname)
 
     params = setupParams()
-    return run(image=input_image / 255, params=params) / 255
+    return run(image=input_image / 255, params=params) * 255
 
 
 
