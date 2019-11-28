@@ -4,11 +4,11 @@ def compute(r, g, b, L):
 
     #CBY Feature Map
     min_rg = np.minimum(r, g)
-    b_min_rg = abs(np.subtract(b, min_rg))
+    b_min_rg = np.abs(np.subtract(b, min_rg))
     CBY = np.divide(b_min_rg, L, out=np.zeros_like(L), where=L != 0)
 
     #CRG Feature Map
-    r_g = abs(np.subtract(r,g))
+    r_g = np.abs(np.subtract(r,g))
     CRG = np.divide(r_g, L, out=np.zeros_like(L), where=L != 0)
 
     featMaps = {}

@@ -1,7 +1,8 @@
 import numpy as np
 import scipy.io
 import sklearn.preprocessing
-import markovChain
+from saliency_models import markovChain
+
 
 def loadGraphDistanceMatrixFor28x32():
     f = scipy.io.loadmat("./28__32__m__2.mat")
@@ -17,12 +18,10 @@ def calculate(map, sigma):
     Fab = np.exp(expr)
 
     map_linear = np.ravel(map, order='F')  # column major
-    state_transition_matrix = np.zeros_like(distanceMat, dtype=np.float32)
 
-    # calculating STM : w = d*Fab
-    for i in range(distanceMat.shape[0]):
-        for j in range(distanceMat.shape[1]):
-            state_transition_matrix[i][j] = Fab[i][j] * abs(map_linear[i] - map_linear[j])
+    state_transition_matrix = Fab * np.abs(
+        (np.zeros((distanceMat.shape[0], distanceMat.shape[1])) + map_linear).T - map_linear
+    ).T
 
     # normalising outgoing weights of each node to sum to 1, using scikit normalize
     norm_STM = sklearn.preprocessing.normalize(state_transition_matrix, axis=0, norm='l1')
@@ -41,12 +40,8 @@ def normalize(map, sigma):
     Fab = np.exp(expr)
 
     map_linear = np.ravel(map, order='F')  # column major
-    state_transition_matrix = np.zeros_like(distanceMat, dtype=np.float32)
-
     # calculating STM : w = d*Fab
-    for i in range(distanceMat.shape[0]):
-        for j in range(distanceMat.shape[1]):
-            state_transition_matrix[i][j] = Fab[i][j] * abs(map_linear[i])
+    state_transition_matrix = (Fab.T * np.abs(map_linear)).T
 
     # normalising outgoing weights of each node to sum to 1, using scikit normalize
     norm_STM = sklearn.preprocessing.normalize(state_transition_matrix, axis=0, norm='l1')
