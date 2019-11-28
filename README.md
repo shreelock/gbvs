@@ -11,3 +11,8 @@ Please use `ittikochneibur.py`.
 
 Modular, Readable, Reuseable.
 Green Code! :recycle:
+
+
+# Required python libraries on Python3
+`pip install matplotlib numpy opencv-python`
+

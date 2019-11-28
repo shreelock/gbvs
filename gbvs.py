@@ -117,6 +117,16 @@ def setupParams():
     return params
 
 
+def get_saliency_from_image(input_image):
+
+    if type(input_image) is str:
+        input_image = cv2.imread(imname)
+
+    params = setupParams()
+    return run(image=input_image / 255, params=params) / 255
+
+
+
 if __name__ == '__main__':
     params = setupParams()
     for i in range(1, 9):
