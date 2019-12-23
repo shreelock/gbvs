@@ -1,6 +1,7 @@
 import time
 import cv2
-from saliency_models import orientationFeatureMaps, ittiColorFeatureMaps, localMaximas, ittiKochCenterSurroundFeatures
+from saliency_models.helpers import ittiColorFeatureMaps, localMaximas, \
+    ittiKochCenterSurroundFeatures, orientationFeatureMaps
 import numpy as np
 from matplotlib import pyplot as plt
 
@@ -125,25 +126,9 @@ def setupParams():
     return params
 
 
-if __name__ == '__main__':
+def compute_saliency(input_image):
+    if type(input_image) is str:
+        input_image = cv2.imread(input_image)
+
     params = setupParams()
-    for i in range(0, 1):
-        # fname = '{:03}'.format(2*i + 1)
-        # imname = "C:\\Users\\Dutt\\Downloads\\trainSet\\Stimuli\\Art\\" + fname + ".jpg"
-        fname = str(i)
-        imname = "./images/" + fname + ".jpg"
-        print("processing" + fname)
-        img = cv2.imread(imname)
-
-        saliency_map = run(img, params)*255.0
-
-        oname = "./outputs/" + fname+ "_out" +str(time.time())+".jpg"
-        # cv2.imwrite(oname, saliency_map)
-
-
-        fig = plt.figure()
-        # fig.add_subplot(1,2,1)
-        # plt.imshow(img, cmap='gray')
-        # fig.add_subplot(1,2,2)
-        plt.imshow(saliency_map, cmap='gray')
-        plt.show()
+    return run(image=input_image, params=params) * 255.0

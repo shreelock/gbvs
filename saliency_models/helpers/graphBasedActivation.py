@@ -1,11 +1,11 @@
 import numpy as np
 import scipy.io
 import sklearn.preprocessing
-from saliency_models import markovChain
+from saliency_models.helpers import markovChain
 
 
 def loadGraphDistanceMatrixFor28x32():
-    f = scipy.io.loadmat("./28__32__m__2.mat")
+    f = scipy.io.loadmat("saliency_models/resources/28__32__m__2.mat")
     distanceMat = np.array(f['grframe'])[0][0][0]
     lx = np.array(f['grframe'])[0][0][1]
     dim = np.array(f['grframe'])[0][0][2]
