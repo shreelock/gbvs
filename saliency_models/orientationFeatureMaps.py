@@ -1,4 +1,4 @@
-from gaborKernelCalculator import getGaborKernels
+from saliency_models.gaborKernelCalculator import getGaborKernels
 import cv2
 import numpy as np
 

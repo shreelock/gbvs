@@ -1,10 +1,7 @@
 import time
 import cv2
-import ittiColorFeatureMaps
-import ittiKochCenterSurroundFeatures
-import orientationFeatureMaps
+from saliency_models import orientationFeatureMaps, ittiColorFeatureMaps, localMaximas, ittiKochCenterSurroundFeatures
 import numpy as np
-import localMaximas
 from matplotlib import pyplot as plt
 
 def norm01(mat):
@@ -13,7 +10,7 @@ def norm01(mat):
 
 def calculateFeatureMaps(r, g, b, L, params):
     colorMaps = ittiColorFeatureMaps.compute(r, g, b, L)
-    orientationMaps = orientationFeatureMaps.compute(L, params['gaborparams'] , params['thetas'])
+    orientationMaps = orientationFeatureMaps.compute(L, params['gaborparams'], params['thetas'])
     allFeatureMaps = {
         0: colorMaps[0],
         1: colorMaps[1],
@@ -135,7 +132,7 @@ if __name__ == '__main__':
         # imname = "C:\\Users\\Dutt\\Downloads\\trainSet\\Stimuli\\Art\\" + fname + ".jpg"
         fname = str(i)
         imname = "./images/" + fname + ".jpg"
-        print "processing" + fname
+        print("processing" + fname)
         img = cv2.imread(imname)
 
         saliency_map = run(img, params)*255.0

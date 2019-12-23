@@ -1,14 +1,12 @@
 import time
 import cv2
-import colorFeatureMaps
-import orientationFeatureMaps
-import graphBasedActivation
+from saliency_models import orientationFeatureMaps, colorFeatureMaps, graphBasedActivation
 import numpy as np
 from matplotlib import pyplot as plt
 
 def calculateFeatureMaps(r, g, b, L, params):
     colorMaps = colorFeatureMaps.compute(r, g, b, L)
-    orientationMaps = orientationFeatureMaps.compute(L, params['gaborparams'] , params['thetas'])
+    orientationMaps = orientationFeatureMaps.compute(L, params['gaborparams'], params['thetas'])
     allFeatureMaps = {
         0: colorMaps['CBY'],
         1: colorMaps['CRG'],
@@ -117,6 +115,16 @@ def setupParams():
     return params
 
 
+def get_saliency_from_image(input_image):
+
+    if type(input_image) is str:
+        input_image = cv2.imread(imname)
+
+    params = setupParams()
+    return run(image=input_image / 255, params=params) * 255
+
+
+
 if __name__ == '__main__':
     params = setupParams()
     for i in range(1, 9):
@@ -124,7 +132,7 @@ if __name__ == '__main__':
         # imname = "C:\\Users\\Dutt\\Downloads\\trainSet\\Stimuli\\Art\\" + fname + ".jpg"
         fname = str(i)
         imname = "./images/" + fname + ".jpg"
-        print "processing" + fname
+        print("processing" + fname)
         img = cv2.imread(imname)
         img = img / 255.0
 
